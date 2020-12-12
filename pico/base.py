@@ -18,8 +18,11 @@ class Tensor(object):
         return '<pico.base.Tensor{}, requires_grad={}>'.format(self.data, self.requires_grad)
 
     def backward(self):
-        tracer.backward(self, np.ones(1))
+        tracer.backward(self, np.ones_like(self.data))
         tracer.recycle(self)
+
+    def clone(self):
+        return Tensor(self.data, self.requires_grad)
 
     def __add__(self, adder):
         add = Add()
@@ -38,10 +41,12 @@ class Tensor(object):
         return div(self, other)
 
     def __neg__(self):
-        pass
+        neg = Neg()
+        return neg(self)
 
     def __pos__(self):
-        pass
+        pos = Pos()
+        return pos(self)
 
 
 class CTX(object):
@@ -135,6 +140,36 @@ class Div(Function):
     def backward(ctx: CTX, grad_out: np.ndarray):
         A, B = ctx.get_saved_tensors()
         return 1./B.data * grad_out, (-A.data/(B.data ** 2))*grad_out
+
+
+class Neg(Function):
+    def __init__(self) -> None:
+        super(Neg, self).__init__()
+
+    @staticmethod
+    def forward(ctx: CTX, tensorA: Tensor):
+
+        return Tensor(-tensorA.data)
+
+    @staticmethod
+    def backward(ctx: CTX, grad_out: np.ndarray):
+
+        return -1.*grad_out
+
+
+class Pos(Function):
+    def __init__(self) -> None:
+        super(Pos, self).__init__()
+
+    @staticmethod
+    def forward(ctx: CTX, tensorA: Tensor):
+
+        return Tensor(tensorA.data)
+
+    @staticmethod
+    def backward(ctx: CTX, grad_out: np.ndarray):
+
+        return grad_out
 
 
 class Tracer(object):
