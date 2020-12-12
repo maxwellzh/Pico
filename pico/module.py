@@ -34,6 +34,16 @@ class Module(object):
     def parameters(self):
         return self.params.values()
 
+    def state_dict(self) -> OrderedDict:
+        return OrderedDict(
+            [(name, param) for name, param in self.named_parameters()]
+        )
+
+    def load_state_dict(self, ckpt: OrderedDict):
+        for name, param in self.named_parameters():
+            setattr(self, name, ckpt[name])
+            param.request_del()
+
 
 class Linear(Module):
     def __init__(self, in_features: int, out_features: int) -> None:
@@ -57,3 +67,8 @@ class Linear(Module):
     def forward(self, x):
         out = F.mm(x, self.weights) + self.bias
         return out
+
+
+class Conv2d(Module):
+    def __init__(self, kernel_size, stride, padding) -> None:
+        super().__init__()

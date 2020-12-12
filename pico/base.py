@@ -4,7 +4,7 @@ from collections import OrderedDict
 
 class Tensor(object):
     def __init__(self, data: np.ndarray, requires_grad=False) -> None:
-        super(Tensor, self).__init__()
+        super().__init__()
         self.data = data
         self.grad = None
         self.requires_grad = requires_grad
@@ -12,6 +12,8 @@ class Tensor(object):
 
     def __del__(self):
         del self.data
+    
+    def request_del(self):
         tracer.rm_tensor(self)
 
     def __str__(self) -> str:
@@ -51,7 +53,7 @@ class Tensor(object):
 
 class CTX(object):
     def __init__(self) -> None:
-        super(CTX, self).__init__()
+        super().__init__()
         self.saved_tensors = None
 
     def save_for_backward(self, *args):
@@ -66,7 +68,7 @@ class CTX(object):
 
 class Function(object):
     def __init__(self) -> None:
-        super(Function, self).__init__()
+        super().__init__()
 
     @staticmethod
     def forward(ctx: CTX, *args, **kwargs):
@@ -84,9 +86,9 @@ class Function(object):
         return out
 
 
-class Add(Function):
+class _Add_(Function):
     def __init__(self) -> None:
-        super(Add, self).__init__()
+        super().__init__()
 
     @staticmethod
     def forward(ctx: CTX, tensorA: Tensor, tensorB: Tensor):
@@ -115,9 +117,9 @@ class Add(Function):
         return grad_A, grad_B
 
 
-class Sub(Function):
+class _Sub_(Function):
     def __init__(self) -> None:
-        super(Sub, self).__init__()
+        super().__init__()
 
     @staticmethod
     def forward(ctx: CTX, tensorA: Tensor, tensorB: Tensor):
@@ -129,9 +131,9 @@ class Sub(Function):
         return grad_out, -grad_out
 
 
-class Mul(Function):
+class _Mul_(Function):
     def __init__(self) -> None:
-        super(Mul, self).__init__()
+        super().__init__()
 
     @staticmethod
     def forward(ctx: CTX, tensorA: Tensor, tensorB: Tensor):
@@ -144,9 +146,9 @@ class Mul(Function):
         return B.data*grad_out, A.data*grad_out
 
 
-class Div(Function):
+class _Div_(Function):
     def __init__(self) -> None:
-        super(Div, self).__init__()
+        super().__init__()
 
     @staticmethod
     def forward(ctx: CTX, tensorA: Tensor, tensorB: Tensor):
@@ -159,9 +161,9 @@ class Div(Function):
         return 1./B.data * grad_out, (-A.data/(B.data ** 2))*grad_out
 
 
-class Neg(Function):
+class _Neg_(Function):
     def __init__(self) -> None:
-        super(Neg, self).__init__()
+        super().__init__()
 
     @staticmethod
     def forward(ctx: CTX, tensorA: Tensor):
@@ -174,9 +176,9 @@ class Neg(Function):
         return -1.*grad_out
 
 
-class Pos(Function):
+class _Pos_(Function):
     def __init__(self) -> None:
-        super(Pos, self).__init__()
+        super().__init__()
 
     @staticmethod
     def forward(ctx: CTX, tensorA: Tensor):
@@ -191,7 +193,7 @@ class Pos(Function):
 
 class Tracer(object):
     def __init__(self) -> None:
-        super(Tracer, self).__init__()
+        super().__init__()
         self.tensors = OrderedDict()
         self.funcs = OrderedDict()
 
@@ -220,7 +222,6 @@ class Tracer(object):
                 save_flag = True
         if not save_flag:
             self.rm_func(idx_func)
-        pass
 
     def rm_func(self, id_func: int):
         if id_func is None:
@@ -320,11 +321,11 @@ class Tracer(object):
                     self.backward(t, g, idx_func=idx_func_t)
 
 
-base_oprator_add = Add()
-base_oprator_sub = Sub()
-base_oprator_mul = Mul()
-base_oprator_div = Div()
-base_oprator_neg = Neg()
-base_oprator_pos = Pos()
+base_oprator_add = _Add_()
+base_oprator_sub = _Sub_()
+base_oprator_mul = _Mul_()
+base_oprator_div = _Div_()
+base_oprator_neg = _Neg_()
+base_oprator_pos = _Pos_()
 
 tracer = Tracer()

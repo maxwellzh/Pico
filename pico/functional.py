@@ -2,7 +2,7 @@ from .base import Tensor, Function, CTX
 import numpy as np
 
 
-class Dot(Function):
+class _Dot_(Function):
     def __init__(self) -> None:
         super().__init__()
 
@@ -36,9 +36,9 @@ class Dot(Function):
         return grad_A, grad_B
 
 
-class MatMul(Function):
+class _MatMul_(Function):
     def __init__(self) -> None:
-        super(MatMul, self).__init__()
+        super().__init__()
 
     @staticmethod
     def forward(ctx: CTX, A: Tensor, B: Tensor):
@@ -71,7 +71,9 @@ class MatMul(Function):
         return grad_A, grad_B
 
 
-class EuclidLoss(Function):
+# class _ReLU_
+
+class _EuclidLoss_(Function):
     def __init__(self) -> None:
         super().__init__()
 
@@ -90,6 +92,6 @@ class EuclidLoss(Function):
         return grad_item, grad_target
 
 
-dot = Dot()
-mm = MatMul()
-euclidloss = EuclidLoss()
+dot = _Dot_()
+mm = _MatMul_()
+EuclidLoss = _EuclidLoss_()
