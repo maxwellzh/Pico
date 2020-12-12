@@ -3,26 +3,37 @@ import pico.functional as F
 from pico.base import Tensor
 from pico.base import tracer
 from pico.utils import SGD, Adam
+from pico.module import Linear
 
-a = Tensor(np.random.randn(1), requires_grad=True)
-b = Tensor(np.random.randn(1), requires_grad=True)
+batchsize = 256
+dim_hid = 6
+x = 5*np.random.randn(batchsize, dim_hid)
+W = 3*np.random.randn(dim_hid, 1)
+y_label = np.matmul(x, W) + np.random.randn(batchsize, 1)*0.2
 
-print(a)
-print(b)
+X = Tensor(x)
+label = Tensor(y_label)
 
-optimizer = Adam([a, b], lr=0.1)
+model = Linear(dim_hid, 1)
 
-for _ in range(5):
+optimizer = Adam(model.parameters(), lr=1)
+
+for _ in range(300):
 
     optimizer.zero_grad()
-    d = a + b
+    # d = a + b
 
-    f = a * d
+    out = model(X)
 
-    f.backward()
+    loss = F.euclidloss(out, label)
+
+    loss.backward(batchsize)
+    # print(model.bias.grad)
+
+    print(loss.data)
 
     optimizer.step()
-    print("")
 
-    print(a, a.grad)
-    print(b, b.grad)
+print(model.weights)
+print(model.bias)
+print(W)

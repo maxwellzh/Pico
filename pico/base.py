@@ -15,38 +15,38 @@ class Tensor(object):
         tracer.rm_tensor(self)
 
     def __str__(self) -> str:
-        return '<pico.base.Tensor{}, requires_grad={}>'.format(self.data, self.requires_grad)
+        return 'Tensor({}, requires_grad={})'.format(self.data, self.requires_grad)
 
-    def backward(self):
-        tracer.backward(self, np.ones_like(self.data))
+    def size(self):
+        return self.data.shape
+
+    def dim(self):
+        return len(self.size())
+
+    def backward(self, batchsize=1.):
+        tracer.backward(self, np.ones_like(self.data)/batchsize)
         tracer.recycle(self)
 
     def clone(self):
         return Tensor(self.data, self.requires_grad)
 
     def __add__(self, adder):
-        add = Add()
-        return add(self, adder)
+        return base_oprator_add(self, adder)
 
     def __sub__(self, suber):
-        sub = Sub()
-        return sub(self, suber)
+        return base_oprator_sub(self, suber)
 
     def __mul__(self, other):
-        mul = Mul()
-        return mul(self, other)
+        return base_oprator_mul(self, other)
 
     def __truediv__(self, other):
-        div = Div()
-        return div(self, other)
+        return base_oprator_div(self, other)
 
     def __neg__(self):
-        neg = Neg()
-        return neg(self)
+        return base_oprator_neg(self)
 
     def __pos__(self):
-        pos = Pos()
-        return pos(self)
+        return base_oprator_pos(self)
 
 
 class CTX(object):
@@ -90,12 +90,29 @@ class Add(Function):
 
     @staticmethod
     def forward(ctx: CTX, tensorA: Tensor, tensorB: Tensor):
-
+        ctx.size = tensorA.size(), tensorB.size()
         return Tensor(tensorA.data + tensorB.data)
 
     @staticmethod
     def backward(ctx: CTX, grad_out: np.ndarray):
-        return np.ones_like(grad_out)*grad_out, np.ones_like(grad_out)*grad_out
+        def _norm_axis_(grad: np.ndarray, target_size: tuple):
+            if target_size != grad_out.shape:
+                if sum(target_size) == len(target_size):
+                    grad = np.sum(grad).reshape(target_size)
+                else:
+                    reduce_axis = tuple(
+                        range(len(grad_out.shape)-len(target_size)))
+                    grad = np.sum(grad, axis=reduce_axis)
+            return grad
+
+        grad_A, grad_B = grad_out, grad_out
+
+        sizeA, sizeB = ctx.size
+
+        grad_A = _norm_axis_(grad_A, sizeA)
+        grad_B = _norm_axis_(grad_B, sizeB)
+
+        return grad_A, grad_B
 
 
 class Sub(Function):
@@ -109,7 +126,7 @@ class Sub(Function):
 
     @staticmethod
     def backward(ctx: CTX, grad_out: np.ndarray):
-        return np.ones_like(grad_out)*grad_out, -np.ones_like(grad_out)*grad_out
+        return grad_out, -grad_out
 
 
 class Mul(Function):
@@ -294,11 +311,20 @@ class Tracer(object):
             if t is not None:
                 t, idx_func_t = self.tensors[t]
                 if t.requires_grad:
+                    assert t.size() == g.shape, "tensor size {} not match the gradient size {}\ngenerate by {}".format(
+                        t.size(), g.shape, func)
                     if t.grad is None:
                         t.grad = g
                     else:
                         t.grad += g
-                self.backward(t, g, idx_func=idx_func_t)
+                    self.backward(t, g, idx_func=idx_func_t)
 
+
+base_oprator_add = Add()
+base_oprator_sub = Sub()
+base_oprator_mul = Mul()
+base_oprator_div = Div()
+base_oprator_neg = Neg()
+base_oprator_pos = Pos()
 
 tracer = Tracer()

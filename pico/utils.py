@@ -1,5 +1,6 @@
 from .base import Tensor
 import numpy as np
+from collections import OrderedDict
 
 
 class OPIM(object):
@@ -19,7 +20,8 @@ class OPIM(object):
 class SGD(OPIM):
     def __init__(self, params, lr: float, momentum: float = 0.) -> None:
         super().__init__(params)
-        self.tracks_grads = {i: None for i in self.params.keys()}
+        self.tracks_grads = OrderedDict(
+            [(i, None) for i in self.params.keys()])
         self.momentum = momentum
         self.lr = lr
 
@@ -46,9 +48,12 @@ class SGD(OPIM):
 class Adam(OPIM):
     def __init__(self, params, lr: float, betas: tuple = (0.9, 0.999)) -> None:
         super().__init__(params)
-        self.tracks_grad_m = {i: None for i in self.params.keys()}
-        self.tracks_grad_v = {i: None for i in self.params.keys()}
-        self.tracks_betas = {i: betas for i in self.params.keys()}
+        self.tracks_grad_m = OrderedDict(
+            [(i, None) for i in self.params.keys()])
+        self.tracks_grad_v = OrderedDict(
+            [(i, None)for i in self.params.keys()])
+        self.tracks_betas = OrderedDict(
+            [(i, betas) for i in self.params.keys()])
         self.betas = betas
         self.lr = lr
 
@@ -61,10 +66,9 @@ class Adam(OPIM):
                 self.tracks_grad_v[key] = param.grad ** 2
             else:
                 self.tracks_grad_m[key] = self.tracks_grad_m[key] * \
-                    self.betas[0] + (1-self.betas[1]) * self.tracks_grad_m[key]
+                    self.betas[0] + (1-self.betas[0]) * param.grad
                 self.tracks_grad_v[key] = self.tracks_grad_v[key] * \
-                    self.betas[1] + (1-self.betas[1]) * \
-                    self.tracks_grad_v[key] ** 2
+                    self.betas[1] + (1-self.betas[1]) * param.grad ** 2
 
             m_hat = self.tracks_grad_m[key]/(1-self.tracks_betas[key][0])
             v_hat = self.tracks_grad_v[key]/(1-self.tracks_betas[key][1])
