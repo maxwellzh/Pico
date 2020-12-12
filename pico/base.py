@@ -12,20 +12,35 @@ class Tensor(object):
 
     def __del__(self):
         del self.data
-
-        pass
+        tracer.rm_tensor(self)
 
     def __str__(self) -> str:
         return '<pico.base.Tensor{}, requires_grad={}>'.format(self.data, self.requires_grad)
 
     def backward(self):
         tracer.backward(self, np.ones(1))
+        tracer.recycle(self)
 
     def __add__(self, adder):
         add = Add()
         return add(self, adder)
 
+    def __sub__(self, suber):
+        sub = Sub()
+        return sub(self, suber)
+
+    def __mul__(self, other):
+        mul = Mul()
+        return mul(self, other)
+
+    def __truediv__(self, other):
+        div = Div()
+        return div(self, other)
+
     def __neg__(self):
+        pass
+
+    def __pos__(self):
         pass
 
 
@@ -69,13 +84,57 @@ class Add(Function):
         super(Add, self).__init__()
 
     @staticmethod
-    def forward(ctx, tensorA: Tensor, tensorB: Tensor):
+    def forward(ctx: CTX, tensorA: Tensor, tensorB: Tensor):
 
         return Tensor(tensorA.data + tensorB.data)
 
     @staticmethod
-    def backward(ctx, grad_out: np.ndarray):
-        return np.ones_like(grad_out), np.ones_like(grad_out)
+    def backward(ctx: CTX, grad_out: np.ndarray):
+        return np.ones_like(grad_out)*grad_out, np.ones_like(grad_out)*grad_out
+
+
+class Sub(Function):
+    def __init__(self) -> None:
+        super(Sub, self).__init__()
+
+    @staticmethod
+    def forward(ctx: CTX, tensorA: Tensor, tensorB: Tensor):
+
+        return Tensor(tensorA.data - tensorB.data)
+
+    @staticmethod
+    def backward(ctx: CTX, grad_out: np.ndarray):
+        return np.ones_like(grad_out)*grad_out, -np.ones_like(grad_out)*grad_out
+
+
+class Mul(Function):
+    def __init__(self) -> None:
+        super(Mul, self).__init__()
+
+    @staticmethod
+    def forward(ctx: CTX, tensorA: Tensor, tensorB: Tensor):
+        ctx.save_for_backward(tensorA, tensorB)
+        return Tensor(tensorA.data * tensorB.data)
+
+    @staticmethod
+    def backward(ctx: CTX, grad_out: np.ndarray):
+        A, B = ctx.get_saved_tensors()
+        return B.data*grad_out, A.data*grad_out
+
+
+class Div(Function):
+    def __init__(self) -> None:
+        super(Div, self).__init__()
+
+    @staticmethod
+    def forward(ctx: CTX, tensorA: Tensor, tensorB: Tensor):
+        ctx.save_for_backward(tensorA, tensorB)
+        return Tensor(tensorA.data / tensorB.data)
+
+    @staticmethod
+    def backward(ctx: CTX, grad_out: np.ndarray):
+        A, B = ctx.get_saved_tensors()
+        return 1./B.data * grad_out, (-A.data/(B.data ** 2))*grad_out
 
 
 class Tracer(object):
@@ -101,7 +160,7 @@ class Tracer(object):
     def rm_tensor(self, tensor: Tensor):
         idx = self.index_tensor(tensor)
         _, idx_func = self.tensors[idx]
-        del self.tensor[idx]
+        del self.tensors[idx]
         # if the function has no ref, del it
         save_flag = False
         for _, i in self.tensors.values():
@@ -152,6 +211,32 @@ class Tracer(object):
         self.funcs[idx] = (func, ctx, tensorlist)
         return idx, ctx
 
+    def recycle(self, tensor: Tensor):
+        while True:
+            idx_tensor = self.index_tensor(tensor)
+            _, idx_func = self.tensors[idx_tensor]
+            if idx_func is None:
+                break
+            self.tensors[idx_tensor] = (tensor, None)
+
+            refs = dict.fromkeys([id_f for _, id_f in self.tensors.values()])
+            no_ref_funcs = [x for x in self.funcs.keys() if x not in refs]
+            if len(no_ref_funcs) == 0:
+                break
+            idx_func = no_ref_funcs[0]
+            _, _, tensorList = self.funcs[idx_func]
+            self.rm_func(idx_func)
+            tensorList = [x for x in tensorList if x is not None]
+            func_refs = []
+            for _, _, l in self.funcs.values():
+                func_refs += l
+            func_refs = dict.fromkeys(func_refs)
+
+            for idx_tensor in tensorList:
+                if idx_tensor not in func_refs:
+                    tensor, _ = self.tensors[idx_tensor]
+                    break
+
     def backward(self, tensor: Tensor, grad: np.ndarray, idx_func=-1):
         if idx_func == -1:
             # unknown function id
@@ -179,8 +264,6 @@ class Tracer(object):
                     else:
                         t.grad += g
                 self.backward(t, g, idx_func=idx_func_t)
-
-        self.rm_func(idx_func)
 
 
 tracer = Tracer()
