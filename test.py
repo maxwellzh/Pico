@@ -26,12 +26,12 @@ model = nn.Linear(dim_hid, 1)
 
 optimizer = optim.Adam(model.parameters(), lr=0.1)
 
-# ckpt = utils.load('./linear.pt')
-# model.load_state_dict(ckpt['model'])
-# optimizer.load_state_dict(ckpt['optimizer'])
-# print(model.weights)
-# print(model.bias)
-# exit(0)
+ckpt = utils.load('./linear.pt')
+model.load_state_dict(ckpt['model'])
+optimizer.load_state_dict(ckpt['optimizer'])
+print(model.weights)
+print(model.bias)
+exit(0)
 log = []
 for _ in range(300):
 
@@ -56,5 +56,5 @@ print(W)
 plt.semilogy(log)
 plt.grid(ls='--')
 plt.show()
-# utils.save([('model', model.state_dict()),
-#             ('optimizer', optimizer.state_dict())], './linear.pt')
+utils.save([('model', model.state_dict()),
+            ('optimizer', optimizer.state_dict())], './linear.pt')

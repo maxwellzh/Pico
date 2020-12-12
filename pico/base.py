@@ -10,9 +10,20 @@ class Tensor(object):
         self.requires_grad = requires_grad
         tracer.add_leaf(self)
 
+    def state_dict(self):
+        return OrderedDict([
+            ('data', self.data),
+            ('grad', self.grad),
+            ('requires_grad', self.requires_grad),
+        ])
+
+    def load_state_dict(self, ckpt: OrderedDict):
+        for key, value in ckpt.items():
+            setattr(self, key, value)
+
     def __del__(self):
         del self.data
-    
+
     def request_del(self):
         tracer.rm_tensor(self)
 

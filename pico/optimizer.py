@@ -1,7 +1,5 @@
-from .base import Tensor
 import numpy as np
 from collections import OrderedDict
-
 
 class OPIM(object):
     def __init__(self, params) -> None:

@@ -18,9 +18,13 @@ class Module(object):
 
     def train(self):
         self.training = True
+        for param in self.parameters():
+            param.requires_grad = True
 
     def eval(self):
         self.training = False
+        for param in self.parameters():
+            param.requires_grad = False
 
     def init_weights(self):
         raise NotImplementedError
@@ -36,13 +40,13 @@ class Module(object):
 
     def state_dict(self) -> OrderedDict:
         return OrderedDict(
-            [(name, param) for name, param in self.named_parameters()]
+            [(name, param.state_dict())
+             for name, param in self.named_parameters()]
         )
 
     def load_state_dict(self, ckpt: OrderedDict):
         for name, param in self.named_parameters():
-            setattr(self, name, ckpt[name])
-            param.request_del()
+            param.load_state_dict(ckpt[name])
 
 
 class Linear(Module):
