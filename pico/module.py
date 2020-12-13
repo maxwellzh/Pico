@@ -15,6 +15,7 @@ class Module(object):
         self.training = True
         self._params_ = OrderedDict()
         self.sub_modules = OrderedDict()
+        self.init_module()
 
     def forward(self, *args, **kwargs):
         raise NotImplementedError
@@ -38,10 +39,12 @@ class Module(object):
         for param in self.parameters():
             param.requires_grad = False
 
-    def init_weights(self):
+    def init_module(self):
         for name, attr in vars(self).items():
             if isinstance(attr, Parameter):
                 self._params_[name] = attr
+            elif isinstance(attr, Module):
+                self.sub_modules[name] = attr
 
         for param in self.parameters():
             shapes = np.prod(param.size())
@@ -102,8 +105,11 @@ class Sequential(Module):
     def forward(self, *args, **kwargs):
         layers = list(self.sub_modules.values())
         output = layers[0](*args, **kwargs)
+        # print(output.size())
         for l in layers[1:]:
             output = l(output)
+            # print(l)
+            # print(output.size())
         return output
 
     def __str__(self) -> str:
@@ -126,12 +132,12 @@ class Linear(Module):
     def __init__(self, in_features: int, out_features: int) -> None:
         super().__init__()
         self.weights = Parameter(
-            np.random.randn(in_features, out_features), requires_grad=True)
+            np.empty((in_features, out_features)), requires_grad=True)
         self.bias = Parameter(
-            np.random.randn(out_features), requires_grad=True
+            np.empty(out_features), requires_grad=True
         )
         self.dims = (in_features, out_features)
-        self.init_weights()
+        self.init_module()
 
     def forward(self, x):
         out = F.mm(x, self.weights) + self.bias
@@ -143,5 +149,61 @@ class Linear(Module):
 
 
 class Conv2d(Module):
-    def __init__(self, kernel_size, stride, padding) -> None:
+    def __init__(self, in_features, out_features, kernel_size, stride, padding=0) -> None:
         super().__init__()
+        self.kernel = Parameter(np.empty(
+            (kernel_size, kernel_size, in_features, out_features)), requires_grad=True)
+        self.bias = Parameter(np.empty(out_features), requires_grad=True)
+
+        self.dims = (in_features, out_features, kernel_size, stride, padding)
+
+        self.init_module()
+
+    def forward(self, x):
+        _, _, _, stride, padding = self.dims
+        out = F.Conv2D(x, self.kernel, stride, padding) + self.bias
+        return out
+
+    def __str__(self) -> str:
+        return super().__str__(attr="in_features={}, out_features={}, kernel_size={}, stride={}, padding={}".format(*self.dims))
+
+
+class MaxPool2d(Module):
+    def __init__(self, kernel_size, stride=None) -> None:
+        super().__init__()
+        stride = kernel_size if stride is None else stride
+        self.dims = (kernel_size, stride)
+
+        self.init_module()
+
+    def forward(self, x):
+        out = F.MaxPool2d(x, self.dims[0], self.dims[1])
+        return out
+
+    def __str__(self) -> str:
+        return super().__str__(attr="kernel_size={}, stride={}".format(*self.dims))
+
+
+class AvgPool2d(Module):
+    def __init__(self, kernel_size, stride) -> None:
+        super().__init__()
+        stride = kernel_size if stride is None else stride
+        self.dims = (kernel_size, stride)
+
+        self.init_module()
+
+    def forward(self, x):
+        out = F.AvgPool2d(x, self.dims[0], self.dims[1])
+        return out
+
+    def __str__(self) -> str:
+        return super().__str__(attr="kernel_size={}, stride={}".format(*self.dims))
+
+
+class Flatten(Module):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def forward(self, x):
+        out = F.flatten(x)
+        return out

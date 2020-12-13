@@ -90,17 +90,19 @@ class Function(object):
         raise NotImplementedError
 
     def __call__(self, *args, **kwargs):
-        id_func, ctx = tracer.add_func(self, *args, **kwargs)
-        out = self.forward(ctx, *args, **kwargs)
-        out.requires_grad = True
-        tracer.add_tensor_from_func(out, id_func)
+        if tracer.blind:
+            tmp_ctx = CTX()
+            out = self.forward(tmp_ctx, *args, **kwargs)
+            del tmp_ctx
+        else:
+            id_func, ctx = tracer.add_func(self, *args, **kwargs)
+            out = self.forward(ctx, *args, **kwargs)
+            out.requires_grad = True
+            tracer.add_tensor_from_func(out, id_func)
         return out
 
 
 class _Add_(Function):
-    def __init__(self) -> None:
-        super().__init__()
-
     @staticmethod
     def forward(ctx: CTX, tensorA: Tensor, tensorB: Tensor):
         ctx.size = tensorA.size(), tensorB.size()
@@ -131,23 +133,35 @@ class _Add_(Function):
 
 
 class _Sub_(Function):
-    def __init__(self) -> None:
-        super().__init__()
-
     @staticmethod
     def forward(ctx: CTX, tensorA: Tensor, tensorB: Tensor):
+        ctx.size = tensorA.size(), tensorB.size()
 
         return Tensor(tensorA.data - tensorB.data)
 
     @staticmethod
     def backward(ctx: CTX, grad_out: np.ndarray):
-        return grad_out, -grad_out
+        def _norm_axis_(grad: np.ndarray, target_size: tuple):
+            if target_size != grad_out.shape:
+                if sum(target_size) == len(target_size):
+                    grad = np.sum(grad).reshape(target_size)
+                else:
+                    reduce_axis = tuple(
+                        range(len(grad_out.shape)-len(target_size)))
+                    grad = np.sum(grad, axis=reduce_axis)
+            return grad
+
+        grad_A, grad_B = grad_out, -grad_out
+
+        sizeA, sizeB = ctx.size
+        # print("Add, B", sizeA, sizeB, grad_out.shape)
+
+        grad_A = _norm_axis_(grad_A, sizeA)
+        grad_B = _norm_axis_(grad_B, sizeB)
+        return grad_A, grad_B
 
 
 class _Mul_(Function):
-    def __init__(self) -> None:
-        super().__init__()
-
     @staticmethod
     def forward(ctx: CTX, tensorA: Tensor, tensorB: Tensor):
         ctx.save_for_backward(tensorA, tensorB)
@@ -160,9 +174,6 @@ class _Mul_(Function):
 
 
 class _Div_(Function):
-    def __init__(self) -> None:
-        super().__init__()
-
     @staticmethod
     def forward(ctx: CTX, tensorA: Tensor, tensorB: Tensor):
         ctx.save_for_backward(tensorA, tensorB)
@@ -175,9 +186,6 @@ class _Div_(Function):
 
 
 class _Neg_(Function):
-    def __init__(self) -> None:
-        super().__init__()
-
     @staticmethod
     def forward(ctx: CTX, tensorA: Tensor):
 
@@ -190,9 +198,6 @@ class _Neg_(Function):
 
 
 class _Pos_(Function):
-    def __init__(self) -> None:
-        super().__init__()
-
     @staticmethod
     def forward(ctx: CTX, tensorA: Tensor):
 
@@ -209,8 +214,12 @@ class Tracer(object):
         super().__init__()
         self.tensors = OrderedDict()
         self.funcs = OrderedDict()
+        self.blind = False
 
     def add_leaf(self, tensor: Tensor):
+        if tracer.blind:
+            return
+
         for t, _ in self.tensors.values():
             assert t != tensor, "Trying to register a existing tensor to tracer!"
 
@@ -220,11 +229,17 @@ class Tracer(object):
             self.tensors[max(self.tensors.keys()) + 1] = (tensor, None)
 
     def add_tensor_from_func(self, tensor: Tensor, id_func):
+        if tracer.blind:
+            return
 
         assert id_func in self.funcs
         self.tensors[self.index_tensor(tensor)] = (tensor, id_func)
 
     def rm_tensor(self, tensor: Tensor):
+        if tracer.blind:
+            return
+
+        # print("RM")
         idx = self.index_tensor(tensor)
         _, idx_func = self.tensors[idx]
         del self.tensors[idx]
@@ -237,6 +252,9 @@ class Tracer(object):
             self.rm_func(idx_func)
 
     def rm_func(self, id_func: int):
+        if tracer.blind:
+            return
+
         if id_func is None:
             return
         _, ctx, _ = self.funcs[id_func]
@@ -255,6 +273,8 @@ class Tracer(object):
         raise ValueError("Unknow tensor to index.")
 
     def add_func(self, func: Function, *args, **kwargs):
+        if tracer.blind:
+            return None, None
 
         if len(self.funcs) == 0:
             idx = 0
@@ -278,20 +298,26 @@ class Tracer(object):
         return idx, ctx
 
     def recycle(self, tensor: Tensor):
+        if tracer.blind:
+            return
+
         while True:
             idx_tensor = self.index_tensor(tensor)
             _, idx_func = self.tensors[idx_tensor]
             if idx_func is None:
+                self.rm_tensor(tensor)
                 break
             self.tensors[idx_tensor] = (tensor, None)
 
-            refs = dict.fromkeys([id_f for _, id_f in self.tensors.values()])
+            refs = dict.fromkeys(
+                [id_f for param, id_f in self.tensors.values() if param.requires_grad])
             no_ref_funcs = [x for x in self.funcs.keys() if x not in refs]
             if len(no_ref_funcs) == 0:
                 break
             idx_func = no_ref_funcs[0]
             _, _, tensorList = self.funcs[idx_func]
             self.rm_func(idx_func)
+            self.rm_tensor(tensor)
             tensorList = [x for x in tensorList if x is not None]
             func_refs = []
             for _, _, l in self.funcs.values():
@@ -304,6 +330,9 @@ class Tracer(object):
                     break
 
     def backward(self, tensor: Tensor, grad: np.ndarray, idx_func=-1):
+        if tracer.blind:
+            return
+
         if idx_func == -1:
             # unknown function id
             idx_tensor = self.index_tensor(tensor)
@@ -335,6 +364,17 @@ class Tracer(object):
                     else:
                         t.grad += g
                     self.backward(t, g, idx_func=idx_func_t)
+
+
+class no_grad(object):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def __enter__(self):
+        tracer.blind = True
+
+    def __exit__(self):
+        tracer.blind = False
 
 
 base_oprator_add = _Add_()

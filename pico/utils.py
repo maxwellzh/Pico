@@ -1,5 +1,6 @@
 from .base import Tensor
 from PIL import Image
+from .module import Module
 
 import os
 import random
@@ -24,8 +25,23 @@ def load(path) -> OrderedDict:
 def transform(mean, std):
     def _transform(img: np.ndarray):
         out = (img - mean) / std
-        return Tensor(out)
+        if len(out.shape) == 4:
+            return Tensor(out)
+        elif len(out.shape) == 3:
+            return Tensor(out.reshape(out.shape + (1,)))
+        else:
+            raise NotImplementedError(
+                "Could not deal with shape {}".format(out.shape))
+
     return _transform
+
+
+def clip_grad(model: Module, threshold=0.2):
+    for param in model.parameters():
+        grad_norm = np.linalg.norm(param.grad)
+        param_norm = np.linalg.norm(param.data)
+        if grad_norm > threshold * param_norm:
+            param.grad /= grad_norm / (threshold*param_norm)
 
 
 class DataLoader(object):
