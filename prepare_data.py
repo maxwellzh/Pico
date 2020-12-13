@@ -2,6 +2,9 @@ import torch
 import numpy as np
 from PIL import Image
 import os
+from torchvision import datasets, transforms
+
+datasets.MNIST('./data', train=True, download=True)
 
 source_dir = 'data/MNIST/processed/'
 target_dir = 'data/MNIST'
