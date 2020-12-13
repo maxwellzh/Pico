@@ -45,7 +45,7 @@ def train(args, model, train_loader, optimizer, epoch, logger):
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * data.size()[0], len(train_loader),
-                100. * batch_idx / len(train_loader), loss.data))
+                100. * batch_idx * data.size()[0] / len(train_loader), loss.data))
 
         # print(len(tracer.tensors))
         # return

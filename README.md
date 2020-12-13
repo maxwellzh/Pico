@@ -1,3 +1,5 @@
+![logo](./assets/logo.png) 
+
 # Pico
 
 **Pico** is a numpy-based "pico"  neural network framework, with torch-like coding style and auto-grad implementation.
