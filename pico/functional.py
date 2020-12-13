@@ -48,6 +48,7 @@ class _MatMul_(Function):
         out: [..., n, k]
         '''
         ctx.save_for_backward(A, B)
+        # print("MatMul F", A.size(), B.size())
 
         return Tensor(np.matmul(A.data, B.data))
 
@@ -67,11 +68,27 @@ class _MatMul_(Function):
 
         # [k, m]
         grad_B = np.sum(grad_B, axis=tuple(range(A.dim()-2)))
+        # print("MatMul B", grad_A.shape, grad_B.shape)
 
         return grad_A, grad_B
 
 
-# class _ReLU_
+class _ReLU_(Function):
+    def __init__(self) -> None:
+        super().__init__()
+
+    @staticmethod
+    def forward(ctx: CTX, tensor: Tensor):
+        ctx.mark_pos = tensor.data > 0.
+        # print("ReLu F", tensor.size())
+        return Tensor(tensor.data * ctx.mark_pos)
+
+    @staticmethod
+    def backward(ctx: CTX, grad_out: np.ndarray):
+        pos = ctx.mark_pos
+        # print("ReLu B", grad_out.shape)
+        return pos * grad_out
+
 
 class _EuclidLoss_(Function):
     def __init__(self) -> None:
@@ -95,3 +112,4 @@ class _EuclidLoss_(Function):
 dot = _Dot_()
 mm = _MatMul_()
 EuclidLoss = _EuclidLoss_()
+ReLU = _ReLU_()

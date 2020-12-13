@@ -16,22 +16,26 @@ import matplotlib.pyplot as plt
 batchsize = 256
 dim_hid = 6
 x = 5*np.random.randn(batchsize, dim_hid)
-W = 3*np.random.randn(dim_hid, 1)
-y_label = np.matmul(x, W) + np.random.randn(batchsize, 1)*0.2
+W0 = 3*np.random.randn(dim_hid, 1)
+y_label = x @ W0 + np.random.randn(batchsize, 1)*0.2
 
 X = Tensor(x)
 label = Tensor(y_label)
 
-model = nn.Linear(dim_hid, 1)
+model = nn.Sequential([
+    nn.Linear(dim_hid, 5),
+    nn.ReLU(),
+    nn.Linear(5, 1)
+])
 
-optimizer = optim.Adam(model.parameters(), lr=0.1)
+optimizer = optim.Adam(model.parameters(), lr=0.01)
 
-ckpt = utils.load('./linear.pt')
-model.load_state_dict(ckpt['model'])
-optimizer.load_state_dict(ckpt['optimizer'])
-print(model.weights)
-print(model.bias)
-exit(0)
+# ckpt = utils.load('./linear.pt')
+# model.load_state_dict(ckpt['model'])
+# optimizer.load_state_dict(ckpt['optimizer'])
+# print(model.weights)
+# print(model.bias)
+# exit(0)
 log = []
 for _ in range(300):
 
@@ -50,11 +54,15 @@ for _ in range(300):
 
     optimizer.step()
 
-print(model.weights)
-print(model.bias)
-print(W)
+
+for name, param in model.named_parameters():
+    print(name, param.data)
+
+print(W0)
+# print(W1)
+# print(W2)
 plt.semilogy(log)
 plt.grid(ls='--')
-plt.show()
+plt.savefig('loss.jpg', dpi=300)
 utils.save([('model', model.state_dict()),
             ('optimizer', optimizer.state_dict())], './linear.pt')

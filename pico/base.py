@@ -104,6 +104,7 @@ class _Add_(Function):
     @staticmethod
     def forward(ctx: CTX, tensorA: Tensor, tensorB: Tensor):
         ctx.size = tensorA.size(), tensorB.size()
+        # print("Add, F", tensorA.size(), tensorB.size())
         return Tensor(tensorA.data + tensorB.data)
 
     @staticmethod
@@ -121,6 +122,7 @@ class _Add_(Function):
         grad_A, grad_B = grad_out, grad_out
 
         sizeA, sizeB = ctx.size
+        # print("Add, B", sizeA, sizeB, grad_out.shape)
 
         grad_A = _norm_axis_(grad_A, sizeA)
         grad_B = _norm_axis_(grad_B, sizeB)
@@ -316,8 +318,11 @@ class Tracer(object):
         func, ctx, tensorList = self.funcs[idx_func]
         grad_outs = func.backward(ctx, grad)
 
+        if len(tensorList) == 1:
+            grad_outs = [grad_outs]
+
         assert len(grad_outs) == len(
-            tensorList), "{} not match the input arguments {}".format(grad_outs, tensorList)
+            tensorList), "{} not match the input arguments {} in function:{}".format(grad_outs, tensorList, func)
 
         for g, t in zip(grad_outs, tensorList):
             if t is not None:
