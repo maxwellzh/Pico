@@ -7,6 +7,7 @@ from collections import OrderedDict
 class Parameter(Tensor):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        # self.retain = True
 
 
 class Module(object):

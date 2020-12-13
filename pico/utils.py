@@ -26,9 +26,9 @@ def transform(mean, std):
     def _transform(img: np.ndarray):
         out = (img - mean) / std
         if len(out.shape) == 4:
-            return Tensor(out)
+            return Tensor(out, retrain=False)
         elif len(out.shape) == 3:
-            return Tensor(out.reshape(out.shape + (1,)))
+            return Tensor(out.reshape(out.shape + (1,)), retrain=False)
         else:
             raise NotImplementedError(
                 "Could not deal with shape {}".format(out.shape))
@@ -81,11 +81,11 @@ class DataLoader(object):
                 ndtags = np.stack(batch_tags, axis=0)
                 batch_imgs = []
                 batch_tags = []
-                yield self.transform(ndimgs), Tensor(ndtags)
+                yield self.transform(ndimgs), Tensor(ndtags, retrain=False)
 
         if batch_imgs != [] and batch_tags != []:
             ndimgs = np.stack(batch_imgs, axis=0)
             ndtags = np.stack(batch_tags, axis=0)
             batch_imgs = []
             batch_tags = []
-            yield self.transform(ndimgs), Tensor(ndtags)
+            yield self.transform(ndimgs), Tensor(ndtags, retrain=False)

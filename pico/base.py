@@ -3,11 +3,12 @@ from collections import OrderedDict
 
 
 class Tensor(object):
-    def __init__(self, data: np.ndarray, requires_grad=False) -> None:
+    def __init__(self, data: np.ndarray, requires_grad=False, retrain=True) -> None:
         super().__init__()
         self.data = data
         self.grad = None
         self.requires_grad = requires_grad
+        self.retain = retrain
         tracer.add_leaf(self)
 
     def state_dict(self):
@@ -98,6 +99,7 @@ class Function(object):
             id_func, ctx = tracer.add_func(self, *args, **kwargs)
             out = self.forward(ctx, *args, **kwargs)
             out.requires_grad = True
+            out.retain = False
             tracer.add_tensor_from_func(out, id_func)
         return out
 
@@ -238,10 +240,14 @@ class Tracer(object):
     def rm_tensor(self, tensor: Tensor):
         if tracer.blind:
             return
+        if isinstance(tensor, int):
+            idx = tensor
+        else:
+            idx = self.index_tensor(tensor)
+        tor, idx_func = self.tensors[idx]
+        if tor.retain:
+            return
 
-        # print("RM")
-        idx = self.index_tensor(tensor)
-        _, idx_func = self.tensors[idx]
         del self.tensors[idx]
         # if the function has no ref, del it
         save_flag = False
@@ -266,9 +272,10 @@ class Tracer(object):
                 self.tensors[id_t] = (t, None)
 
     def index_tensor(self, tensor: Tensor):
-        for i, (t, _) in self.tensors.items():
-            if t == tensor:
-                return i
+        reverse_keys = list(self.tensors.keys())[::-1]
+        for key in reverse_keys:
+            if tensor == self.tensors[key][0]:
+                return key
 
         raise ValueError("Unknow tensor to index.")
 
@@ -301,33 +308,33 @@ class Tracer(object):
         if tracer.blind:
             return
 
-        while True:
-            idx_tensor = self.index_tensor(tensor)
+        rm_list = [self.index_tensor(tensor)]
+        while rm_list != []:
+            idx_tensor = rm_list.pop()
             _, idx_func = self.tensors[idx_tensor]
             if idx_func is None:
-                self.rm_tensor(tensor)
-                break
-            self.tensors[idx_tensor] = (tensor, None)
-
+                self.rm_tensor(idx_tensor)
+                continue
+            self.tensors[idx_tensor] = (self.tensors[idx_tensor][0], None)
             refs = dict.fromkeys(
                 [id_f for param, id_f in self.tensors.values() if param.requires_grad])
             no_ref_funcs = [x for x in self.funcs.keys() if x not in refs]
             if len(no_ref_funcs) == 0:
-                break
+                continue
+
             idx_func = no_ref_funcs[0]
             _, _, tensorList = self.funcs[idx_func]
             self.rm_func(idx_func)
-            self.rm_tensor(tensor)
+            self.rm_tensor(idx_tensor)
             tensorList = [x for x in tensorList if x is not None]
             func_refs = []
             for _, _, l in self.funcs.values():
                 func_refs += l
             func_refs = dict.fromkeys(func_refs)
 
-            for idx_tensor in tensorList:
-                if idx_tensor not in func_refs:
-                    tensor, _ = self.tensors[idx_tensor]
-                    break
+            for i_tensor in tensorList:
+                if i_tensor not in func_refs:
+                    rm_list.append(i_tensor)
 
     def backward(self, tensor: Tensor, grad: np.ndarray, idx_func=-1):
         if tracer.blind:

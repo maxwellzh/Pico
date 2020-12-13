@@ -31,15 +31,15 @@ class Net(nn.Module):
         return out
 
 
-def train(args, model, train_loader, optimizer, epoch):
+def train(args, model, train_loader, optimizer, epoch, logger):
     model.train()
     # print(len(tracer.tensors))
     for batch_idx, (data, target) in enumerate(train_loader()):
-        # print(data.size())
         optimizer.zero_grad()
         output = model(data)
         loss = F.CrossEntropyLoss(output, target)
         loss.backward()
+        logger.append(loss.data)
         utils.clip_grad(model)
         optimizer.step()
         if batch_idx % args.log_interval == 0:
@@ -48,7 +48,6 @@ def train(args, model, train_loader, optimizer, epoch):
                 100. * batch_idx / len(train_loader), loss.data))
 
         # print(len(tracer.tensors))
-        tracer.rm_tensor(target)
         # return
 
 
@@ -63,6 +62,8 @@ def test(model, test_loader):
             test_loss.append(F.CrossEntropyLoss(output, target).data)
             pred = np.argmax(output.data, axis=1)
             correct += (pred == target.data).sum()
+            # print(len(tracer.tensors))
+            # return
 
     test_loss = np.mean(test_loss)
 
@@ -73,17 +74,19 @@ def test(model, test_loader):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Pico MNIST Example')
-    parser.add_argument('--batch-size', type=int, default=16, metavar='N',
+    parser.add_argument('--batch-size', type=int, default=512, metavar='N',
                         help='input batch size for training (default: 512)')
     parser.add_argument('--test-batch-size', type=int, default=500, metavar='N',
                         help='input batch size for testing (default: 500)')
     parser.add_argument('--epochs', type=int, default=20, metavar='N',
                         help='number of epochs to train (default: 20)')
     parser.add_argument('--lr', type=float, default=0.001, metavar='LR',
-                        help='learning rate (default: 0.5)')
+                        help='learning rate (default: 0.001)')
 
     parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                         help='how many batches to wait before logging training status')
+    parser.add_argument('--resume', type=str, default='', metavar='PATH',
+                        help='model checkpoint path.')
 
     args = parser.parse_args()
 
@@ -94,6 +97,26 @@ if __name__ == "__main__":
 
     model = Net()
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
+
+    if args.resume != '':
+        ckpt = utils.load(args.resume)
+        model.load_state_dict(ckpt['model'])
+        optimizer.load_state_dict(ckpt['optimizer'])
+
+    logger = []
     for epoch in range(1, args.epochs + 1):
-        train(args, model, train_loader, optimizer, epoch)
+        train(args, model, train_loader, optimizer, epoch, logger)
         test(model, test_loader)
+        utils.save(
+            {
+                'model': model.state_dict(),
+                'optimizer': optimizer.state_dict()
+            },
+            "./model.pt".format(epoch)
+        )
+
+    utils.save({'logger': logger}, 'log.pt')
+
+    plt.semilogy(logger)
+    plt.grid(ls='--')
+    plt.savefig('loss.png', dpi=300)
