@@ -89,5 +89,3 @@ class DataLoader(object):
             batch_imgs = []
             batch_tags = []
             yield self.transform(ndimgs), Tensor(ndtags)
-
-        return

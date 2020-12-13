@@ -57,14 +57,12 @@ def test(model, test_loader):
     test_loss = []
     correct = 0
 
-    # print(len(tracer.tensors))
     with Pico.no_grad():
         for data, target in test_loader():
             output = model(data)
             test_loss.append(F.CrossEntropyLoss(output, target).data)
             pred = np.argmax(output.data, axis=1)
             correct += (pred == target.data).sum()
-            # print(len(tracer.tensors))
 
     test_loss = np.mean(test_loss)
 
@@ -75,10 +73,10 @@ def test(model, test_loader):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Pico MNIST Example')
-    parser.add_argument('--batch-size', type=int, default=512, metavar='N',
+    parser.add_argument('--batch-size', type=int, default=16, metavar='N',
                         help='input batch size for training (default: 512)')
-    parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
-                        help='input batch size for testing (default: 1000)')
+    parser.add_argument('--test-batch-size', type=int, default=500, metavar='N',
+                        help='input batch size for testing (default: 500)')
     parser.add_argument('--epochs', type=int, default=20, metavar='N',
                         help='number of epochs to train (default: 20)')
     parser.add_argument('--lr', type=float, default=0.001, metavar='LR',

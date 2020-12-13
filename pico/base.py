@@ -373,7 +373,9 @@ class no_grad(object):
     def __enter__(self):
         tracer.blind = True
 
-    def __exit__(self):
+    def __exit__(self, exc_type, exc_value, exc_tb):
+        if exc_tb is not None:
+            raise Exception("{}\n{}".format(exc_type, exc_value))
         tracer.blind = False
 
 
