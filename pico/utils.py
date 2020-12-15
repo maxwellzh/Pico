@@ -65,6 +65,9 @@ class DataLoader(object):
     def __len__(self):
         return len(self.data)
 
+    def __iter__(self) -> None:
+        return self()
+
     def __call__(self):
         if self.shuffle:
             random.shuffle(self.data)

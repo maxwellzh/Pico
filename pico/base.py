@@ -11,6 +11,10 @@ class Tensor(object):
         self.retain = retrain
         tracer.add_leaf(self)
 
+    def backward(self, batchsize=1.):
+        tracer.backward(self, np.ones_like(self.data)/batchsize)
+        tracer.recycle(self)
+
     def state_dict(self):
         return OrderedDict([
             ('data', self.data),
@@ -37,30 +41,26 @@ class Tensor(object):
     def dim(self):
         return len(self.size())
 
-    def backward(self, batchsize=1.):
-        tracer.backward(self, np.ones_like(self.data)/batchsize)
-        tracer.recycle(self)
-
     def clone(self):
         return Tensor(self.data, self.requires_grad)
 
     def __add__(self, adder):
-        return base_oprator_add(self, adder)
+        return base_operator_add(self, adder)
 
     def __sub__(self, suber):
-        return base_oprator_sub(self, suber)
+        return base_operator_sub(self, suber)
 
     def __mul__(self, other):
-        return base_oprator_mul(self, other)
+        return base_operator_mul(self, other)
 
     def __truediv__(self, other):
-        return base_oprator_div(self, other)
+        return base_operator_div(self, other)
 
     def __neg__(self):
-        return base_oprator_neg(self)
+        return base_operator_neg(self)
 
     def __pos__(self):
-        return base_oprator_pos(self)
+        return base_operator_pos(self)
 
 
 class CTX(object):
@@ -108,7 +108,6 @@ class _Add_(Function):
     @staticmethod
     def forward(ctx: CTX, tensorA: Tensor, tensorB: Tensor):
         ctx.size = tensorA.size(), tensorB.size()
-        # print("Add, F", tensorA.size(), tensorB.size())
         return Tensor(tensorA.data + tensorB.data)
 
     @staticmethod
@@ -126,7 +125,6 @@ class _Add_(Function):
         grad_A, grad_B = grad_out, grad_out
 
         sizeA, sizeB = ctx.size
-        # print("Add, B", sizeA, sizeB, grad_out.shape)
 
         grad_A = _norm_axis_(grad_A, sizeA)
         grad_B = _norm_axis_(grad_B, sizeB)
@@ -156,7 +154,6 @@ class _Sub_(Function):
         grad_A, grad_B = grad_out, -grad_out
 
         sizeA, sizeB = ctx.size
-        # print("Add, B", sizeA, sizeB, grad_out.shape)
 
         grad_A = _norm_axis_(grad_A, sizeA)
         grad_B = _norm_axis_(grad_B, sizeB)
@@ -184,7 +181,7 @@ class _Div_(Function):
     @staticmethod
     def backward(ctx: CTX, grad_out: np.ndarray):
         A, B = ctx.get_saved_tensors()
-        return 1./B.data * grad_out, (-A.data/(B.data ** 2))*grad_out
+        return 1./B.data * grad_out, (-A.data/(B.data ** 2)) * grad_out
 
 
 class _Neg_(Function):
@@ -386,11 +383,11 @@ class no_grad(object):
         tracer.blind = False
 
 
-base_oprator_add = _Add_()
-base_oprator_sub = _Sub_()
-base_oprator_mul = _Mul_()
-base_oprator_div = _Div_()
-base_oprator_neg = _Neg_()
-base_oprator_pos = _Pos_()
+base_operator_add = _Add_()
+base_operator_sub = _Sub_()
+base_operator_mul = _Mul_()
+base_operator_div = _Div_()
+base_operator_neg = _Neg_()
+base_operator_pos = _Pos_()
 
 tracer = Tracer()

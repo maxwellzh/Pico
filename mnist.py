@@ -33,8 +33,7 @@ class Net(nn.Module):
 
 def train(args, model, train_loader, optimizer, epoch, logger):
     model.train()
-    # print(len(tracer.tensors))
-    for batch_idx, (data, target) in enumerate(train_loader()):
+    for batch_idx, (data, target) in enumerate(train_loader):
         optimizer.zero_grad()
         output = model(data)
         loss = F.CrossEntropyLoss(output, target)
@@ -47,9 +46,6 @@ def train(args, model, train_loader, optimizer, epoch, logger):
                 epoch, batch_idx * data.size()[0], len(train_loader),
                 100. * batch_idx * data.size()[0] / len(train_loader), loss.data))
 
-        # print(len(tracer.tensors))
-        # return
-
 
 def test(model, test_loader):
     model.eval()
@@ -57,13 +53,11 @@ def test(model, test_loader):
     correct = 0
 
     with Pico.no_grad():
-        for data, target in test_loader():
+        for data, target in test_loader:
             output = model(data)
             test_loss.append(F.CrossEntropyLoss(output, target).data)
             pred = np.argmax(output.data, axis=1)
             correct += (pred == target.data).sum()
-            # print(len(tracer.tensors))
-            # return
 
     test_loss = np.mean(test_loss)
 

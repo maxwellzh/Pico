@@ -106,11 +106,8 @@ class Sequential(Module):
     def forward(self, *args, **kwargs):
         layers = list(self.sub_modules.values())
         output = layers[0](*args, **kwargs)
-        # print(output.size())
         for l in layers[1:]:
             output = l(output)
-            # print(l)
-            # print(output.size())
         return output
 
     def __str__(self) -> str:

@@ -42,7 +42,6 @@ class _MatMul_(Function):
         out: [..., n, k]
         '''
         ctx.save_for_backward(A, B)
-        # print("MatMul F", A.size(), B.size())
 
         return Tensor(np.matmul(A.data, B.data))
 
@@ -62,7 +61,6 @@ class _MatMul_(Function):
 
         # [k, m]
         grad_B = np.sum(grad_B, axis=tuple(range(A.dim()-2)))
-        # print("MatMul B", grad_A.shape, grad_B.shape)
 
         return grad_A, grad_B
 
@@ -71,13 +69,11 @@ class _ReLU_(Function):
     @staticmethod
     def forward(ctx: CTX, tensor: Tensor):
         ctx.mark_pos = tensor.data > 0.
-        # print("ReLu F", tensor.size())
         return Tensor(tensor.data * ctx.mark_pos)
 
     @staticmethod
     def backward(ctx: CTX, grad_out: np.ndarray):
         pos = ctx.mark_pos
-        # print("ReLu B", grad_out.shape)
         return pos * grad_out
 
 
@@ -133,7 +129,6 @@ class _Conv2D_(Function):
         H_k, W_k, _, K = kernel.data.shape
         assert H_k == W_k
 
-        # print(stride, padding)
         im = np.pad(feature_map.data, ((0, 0), (padding, padding),
                                        (padding, padding), (0, 0)), 'constant')
         reshaped_im = _stride_select_(im, H_k, stride)
@@ -152,7 +147,6 @@ class _Conv2D_(Function):
 
     @staticmethod
     def backward(ctx: CTX, grad_output: np.ndarray):
-        # print(grad_output.shape)
         # grad_output: [N, OH, OW, K]
 
         # kernel: [H_k * W_k * C, K]
@@ -172,8 +166,6 @@ class _Conv2D_(Function):
         grad_kernel = np.transpose(
             reshaped_x.reshape(-1, reduced_dim)) @ grad_output.reshape(-1, grad_output.shape[-1])
         grad_kernel = grad_kernel.reshape(kernel_size)
-
-        # print("Conv2D: B, ", grad_x.shape, grad_kernel.shape)
 
         return grad_x, grad_kernel, None, None
 
