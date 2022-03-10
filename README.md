@@ -6,14 +6,18 @@
 
 - [x] Flexible Tensor
 - [x] Auto-grad mechanism
-- [ ] ~~With high performace and efficient~~
 - [x] Compact codes
+- [ ] ~~High performace and efficiency~~
 
 ## Requirements
 
-Developed with `python 3.8.5` and `numpy 1.19.2`.
+Install requirements of `pico` via:
 
-You may need to manually install some missing packages with `python3 -m pip install <package>`
+```bash
+pip install -r requirements.txt
+```
+
+Preparing the MNIST images further requires to install `torch` and `torchvision`, but them're not required for the basic functions.
 
 ## Usage
 
@@ -22,20 +26,20 @@ The coding style of **Pico** is just almost the same as pytorch. See `mnist.py` 
 Here is a mini-example:
 
 ```python
->>> import numpy as np
+>>> import pico
 >>> import pico.functional as F
->>> from pico.base import Tensor
+>>> import numpy as np
 
 # create a Tensor, initialized with a numpy array, set requires_grad=True to calculate gradient
->>> x = Tensor(np.random.randn(7, 5), requires_grad=True)
+>>> x = pico.Tensor(np.random.randn(7, 5), requires_grad=True)
 # create the target data
->>> target = Tensor(np.random.randint(0, 5, (7,)))
+>>> target = pico.Tensor(np.random.randint(0, 5, (7,)))
 # compute cross entropy loss
 >>> loss = F.CrossEntropyLoss(x, target)
+>>> loss
+Tensor(1.7836267107242398, requires_grad=True)
 # call backward of loss
 >>> loss.backward()
->>> print(loss)
-Tensor(1.7836267107242398, requires_grad=True)
 >>> print(x.grad)
 [[ 0.18704112  0.07444789  0.10220077  0.07920804  0.0466561 ]
  [ 0.0495909   0.0595846   0.36349058  0.3803355   0.04203391]
@@ -48,34 +52,35 @@ Tensor(1.7836267107242398, requires_grad=True)
 
 ## MNIST
 
-**Data prepare:** Firstly install `torch` module for loading data. Then run command
+**Data prepare:** Firstly install `torch` module for loading data.
 
+```bash
+pip install torch==1.10.2 torchvision==0.11.3
 ```
-$ python3 prepare_data.py
+
+Then run command
+
+```bash
+python prepare_data.py
 ```
 
 Waiting the script to finish.
 
 **Training:**
 
-```
-$ python3 mnist.py
+```bash
+python3 mnist.py
 ```
 
-## File list
+## Pico module file list
 
 ```
-.
-├── README.md
-├── mnist.py
-├── pico
-│   ├── __init__.py
-│   ├── base.py
-│   ├── functional.py
-│   ├── module.py
-│   ├── optimizer.py
-│   └── utils.py
-├── prepare_data.py
-└── test.py
+pico
+├── __init__.py
+├── base.py
+├── functional.py
+├── nn.py
+├── optimizer.py
+└── utils.py
 ```
 

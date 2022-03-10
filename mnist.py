@@ -1,13 +1,12 @@
 
+
+import pico
+import pico.nn as nn
+import pico.functional as F
+
 import argparse
 import numpy as np
-import pico.functional as F
-from pico.base import Tensor, tracer
-import pico.module as nn
-import pico.utils as utils
-import pico.optimizer as optim
 import matplotlib.pyplot as plt
-import pico.base as Pico
 
 
 class Net(nn.Module):
@@ -39,7 +38,7 @@ def train(args, model, train_loader, optimizer, epoch, logger):
         loss = F.CrossEntropyLoss(output, target)
         loss.backward()
         logger.append(loss.data)
-        utils.clip_grad(model)
+        pico.utils.clip_grad(model)
         optimizer.step()
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
@@ -52,7 +51,7 @@ def test(model, test_loader):
     test_loss = []
     correct = 0
 
-    with Pico.no_grad():
+    with pico.no_grad():
         for data, target in test_loader:
             output = model(data)
             test_loss.append(F.CrossEntropyLoss(output, target).data)
@@ -84,16 +83,16 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    train_loader = utils.DataLoader(
-        'data/MNIST/train', utils.transform(0.1307, 0.3081), args.batch_size, True)
-    test_loader = utils.DataLoader(
-        'data/MNIST/test', utils.transform(0.1307, 0.3081), args.test_batch_size, False)
+    train_loader = pico.utils.DataLoader(
+        'data/MNIST/train', pico.utils.transform(0.1307, 0.3081), args.batch_size, True)
+    test_loader = pico.utils.DataLoader(
+        'data/MNIST/test', pico.utils.transform(0.1307, 0.3081), args.test_batch_size, False)
 
     model = Net()
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    optimizer = pico.optimizer.Adam(model.parameters(), lr=args.lr)
 
     if args.resume != '':
-        ckpt = utils.load(args.resume)
+        ckpt = pico.utils.load(args.resume)
         model.load_state_dict(ckpt['model'])
         optimizer.load_state_dict(ckpt['optimizer'])
 
@@ -101,7 +100,7 @@ if __name__ == "__main__":
     for epoch in range(1, args.epochs + 1):
         train(args, model, train_loader, optimizer, epoch, logger)
         test(model, test_loader)
-        utils.save(
+        pico.utils.save(
             {
                 'model': model.state_dict(),
                 'optimizer': optimizer.state_dict()
@@ -109,7 +108,7 @@ if __name__ == "__main__":
             "./model.pt".format(epoch)
         )
 
-    utils.save({'logger': logger}, 'log.pt')
+    pico.utils.save({'logger': logger}, 'log.pt')
 
     plt.semilogy(logger)
     plt.grid(ls='--')

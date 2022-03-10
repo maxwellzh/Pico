@@ -1,10 +1,14 @@
+from .nn import Parameter
+
 import numpy as np
 from collections import OrderedDict
+from typing import Iterable
 
-class OPIM(object):
-    def __init__(self, params) -> None:
+
+class Optimizer(object):
+    def __init__(self, params: Iterable[Parameter]) -> None:
         super().__init__()
-        self.params = {i: param for i, param in enumerate(list(params))}
+        self.params = {i: param for i, param in enumerate(params)}
 
     def step(self):
         raise NotImplementedError
@@ -14,7 +18,7 @@ class OPIM(object):
             if param.grad is not None:
                 param.grad = np.zeros_like(param.grad)
 
-    def state_dict(self):
+    def state_dict(self) -> OrderedDict:
         raise NotImplementedError
 
     def load_state_dict(self, ckpt: OrderedDict):
@@ -22,8 +26,8 @@ class OPIM(object):
             setattr(self, key, value)
 
 
-class SGD(OPIM):
-    def __init__(self, params, lr: float, momentum: float = 0.) -> None:
+class SGD(Optimizer):
+    def __init__(self, params: Iterable[Parameter], lr: float, momentum: float = 0.) -> None:
         super().__init__(params)
         self.tracks_grads = OrderedDict(
             [(i, None) for i in self.params.keys()])
@@ -49,13 +53,12 @@ class SGD(OPIM):
                     self.momentum + (1-self.momentum)*param.grad
             param.data -= self.tracks_grads[key] * self.lr
 
-    def state_dict(self):
-
+    def state_dict(self) -> OrderedDict:
         return OrderedDict([('lr', self.lr), ('momentum', self.momentum), ('tracks_grads', self.tracks_grads)])
 
 
-class Adam(OPIM):
-    def __init__(self, params, lr: float, betas: tuple = (0.9, 0.999)) -> None:
+class Adam(Optimizer):
+    def __init__(self, params: Iterable[Parameter], lr: float, betas: tuple = (0.9, 0.999)) -> None:
         super().__init__(params)
         self.tracks_grad_m = OrderedDict(
             [(i, None) for i in self.params.keys()])
@@ -87,7 +90,7 @@ class Adam(OPIM):
             self.tracks_betas[key] = (
                 self.tracks_betas[key][0] * self.betas[0], self.tracks_betas[key][1] * self.betas[1])
 
-    def state_dict(self):
+    def state_dict(self) -> OrderedDict:
         return OrderedDict([
             ('lr', self.lr),
             ('betas', self.betas),

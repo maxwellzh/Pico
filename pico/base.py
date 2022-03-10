@@ -1,5 +1,6 @@
 import numpy as np
 from collections import OrderedDict
+from typing import Union, Tuple
 
 
 class Tensor(object):
@@ -11,11 +12,11 @@ class Tensor(object):
         self.retain = retrain
         tracer.add_leaf(self)
 
-    def backward(self, batchsize=1.):
+    def backward(self, batchsize: int = 1):
         tracer.backward(self, np.ones_like(self.data)/batchsize)
         tracer.recycle(self)
 
-    def state_dict(self):
+    def state_dict(self) -> OrderedDict:
         return OrderedDict([
             ('data', self.data),
             ('grad', self.grad),
@@ -32,8 +33,8 @@ class Tensor(object):
     def request_del(self):
         tracer.rm_tensor(self)
 
-    def __str__(self) -> str:
-        return 'Tensor({}, requires_grad={})'.format(self.data, self.requires_grad)
+    def __repr__(self) -> str:
+        return "Tensor({}, requires_grad={})".format(repr(self.data).strip('array()'), self.requires_grad)
 
     def size(self):
         return self.data.shape
@@ -44,22 +45,22 @@ class Tensor(object):
     def clone(self):
         return Tensor(self.data, self.requires_grad)
 
-    def __add__(self, adder):
+    def __add__(self, adder: "Tensor") -> "Tensor":
         return base_operator_add(self, adder)
 
-    def __sub__(self, suber):
+    def __sub__(self, suber: "Tensor") -> "Tensor":
         return base_operator_sub(self, suber)
 
-    def __mul__(self, other):
+    def __mul__(self, other: "Tensor") -> "Tensor":
         return base_operator_mul(self, other)
 
-    def __truediv__(self, other):
+    def __truediv__(self, other: "Tensor") -> "Tensor":
         return base_operator_div(self, other)
 
-    def __neg__(self):
+    def __neg__(self) -> "Tensor":
         return base_operator_neg(self)
 
-    def __pos__(self):
+    def __pos__(self) -> "Tensor":
         return base_operator_pos(self)
 
 
@@ -227,7 +228,7 @@ class Tracer(object):
         else:
             self.tensors[max(self.tensors.keys()) + 1] = (tensor, None)
 
-    def add_tensor_from_func(self, tensor: Tensor, id_func):
+    def add_tensor_from_func(self, tensor: Tensor, id_func: int):
         if tracer.blind:
             return
 
@@ -269,14 +270,14 @@ class Tracer(object):
                 self.tensors[id_t] = (t, None)
 
     def index_tensor(self, tensor: Tensor):
-        reverse_keys = list(self.tensors.keys())[::-1]
-        for key in reverse_keys:
+        for key in list(self.tensors.keys())[::-1]:
             if tensor == self.tensors[key][0]:
                 return key
 
         raise ValueError("Unknow tensor to index.")
 
-    def add_func(self, func: Function, *args, **kwargs):
+    def add_func(self, func: Function, *args, **kwargs) -> Union[Tuple[int, CTX], Tuple[None, None]]:
+        """Add the function into function pool and return its index and context manager."""
         if tracer.blind:
             return None, None
 
@@ -302,6 +303,7 @@ class Tracer(object):
         return idx, ctx
 
     def recycle(self, tensor: Tensor):
+        """Collect all unused leaves tensors and release resources from pools."""
         if tracer.blind:
             return
 
@@ -333,7 +335,7 @@ class Tracer(object):
                 if i_tensor not in func_refs:
                     rm_list.append(i_tensor)
 
-    def backward(self, tensor: Tensor, grad: np.ndarray, idx_func=-1):
+    def backward(self, tensor: Tensor, grad: np.ndarray, idx_func: int = -1):
         if tracer.blind:
             return
 

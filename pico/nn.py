@@ -1,13 +1,14 @@
-import numpy as np
 from . import functional as F
 from .base import Tensor
+
+import numpy as np
 from collections import OrderedDict
+from typing import List, Union, Tuple, Optional
 
 
 class Parameter(Tensor):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        # self.retain = True
 
 
 class Module(object):
@@ -24,21 +25,23 @@ class Module(object):
     def __call__(self, *args, **kwargs):
         return self.forward(*args, **kwargs)
 
-    def __str__(self, attr='') -> str:
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
+    def repr_w_attr(self, attr='') -> str:
         return "{}({})".format(self.__class__.__name__, attr)
 
     def train(self):
         self.training = True
-        for param in self.parameters():
-            param.requires_grad = True
 
     def add_module(self, name, module):
         self.sub_modules[name] = module
 
     def eval(self):
         self.training = False
-        for param in self.parameters():
-            param.requires_grad = False
+
+    def numel(self) -> int:
+        return sum(np.prod(param.size()) for param in self.parameters())
 
     def init_module(self):
         for name, attr in vars(self).items():
@@ -91,9 +94,9 @@ class Module(object):
 
 
 class Sequential(Module):
-    def __init__(self, ModuleList) -> None:
+    def __init__(self, modulelist: List[Union[Module, Tuple[str, Module]]]) -> None:
         super().__init__()
-        for i, item in enumerate(ModuleList):
+        for i, item in enumerate(modulelist):
             if isinstance(item, Module):
                 self.add_module(str(i), item)
             elif isinstance(item, tuple):
@@ -101,7 +104,7 @@ class Sequential(Module):
                 self.add_module(name, module)
             else:
                 raise ValueError(
-                    "Unknown type of item in ModuleList: {}".format(type(item)))
+                    "Unknown type of item in input: {}".format(type(item)))
 
     def forward(self, *args, **kwargs):
         layers = list(self.sub_modules.values())
@@ -110,19 +113,18 @@ class Sequential(Module):
             output = l(output)
         return output
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         attr = ['\n{}: {}'.format(name, module)
                 for name, module in self.sub_modules.items()]
         attr = ''.join(attr)
-        return super().__str__(attr=attr)
+        return super().repr_w_attr(attr=attr)
 
 
 class ReLU(Module):
     def __init__(self) -> None:
         super().__init__()
 
-    def forward(self, x):
-
+    def forward(self, x: Tensor) -> Tensor:
         return F.ReLU(x)
 
 
@@ -137,17 +139,17 @@ class Linear(Module):
         self.dims = (in_features, out_features)
         self.init_module()
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         out = F.mm(x, self.weights) + self.bias
         return out
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         attr = 'in_features={}, out_features={}'.format(*(self.dims))
-        return super().__str__(attr=attr)
+        return super().repr_w_attr(attr=attr)
 
 
 class Conv2d(Module):
-    def __init__(self, in_features, out_features, kernel_size, stride, padding=0) -> None:
+    def __init__(self, in_features: int, out_features: int, kernel_size: int, stride: int, padding: int = 0) -> None:
         super().__init__()
         self.kernel = Parameter(np.empty(
             (kernel_size, kernel_size, in_features, out_features)), requires_grad=True)
@@ -162,46 +164,46 @@ class Conv2d(Module):
         out = F.Conv2D(x, self.kernel, stride, padding) + self.bias
         return out
 
-    def __str__(self) -> str:
-        return super().__str__(attr="in_features={}, out_features={}, kernel_size={}, stride={}, padding={}".format(*self.dims))
+    def __repr__(self) -> str:
+        return super().repr_w_attr(attr="in_features={}, out_features={}, kernel_size={}, stride={}, padding={}".format(*self.dims))
 
 
 class MaxPool2d(Module):
-    def __init__(self, kernel_size, stride=None) -> None:
+    def __init__(self, kernel_size: int, stride: Optional[int] = None) -> None:
         super().__init__()
         stride = kernel_size if stride is None else stride
         self.dims = (kernel_size, stride)
 
         self.init_module()
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         out = F.MaxPool2d(x, self.dims[0], self.dims[1])
         return out
 
-    def __str__(self) -> str:
-        return super().__str__(attr="kernel_size={}, stride={}".format(*self.dims))
+    def __repr__(self) -> str:
+        return super().repr_w_attr(attr="kernel_size={}, stride={}".format(*self.dims))
 
 
 class AvgPool2d(Module):
-    def __init__(self, kernel_size, stride) -> None:
+    def __init__(self, kernel_size: int, stride: int) -> None:
         super().__init__()
         stride = kernel_size if stride is None else stride
         self.dims = (kernel_size, stride)
 
         self.init_module()
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         out = F.AvgPool2d(x, self.dims[0], self.dims[1])
         return out
 
-    def __str__(self) -> str:
-        return super().__str__(attr="kernel_size={}, stride={}".format(*self.dims))
+    def __repr__(self) -> str:
+        return super().repr_w_attr(attr="kernel_size={}, stride={}".format(*self.dims))
 
 
 class Flatten(Module):
     def __init__(self) -> None:
         super().__init__()
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         out = F.flatten(x)
         return out

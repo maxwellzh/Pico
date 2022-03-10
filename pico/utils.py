@@ -1,15 +1,17 @@
 from .base import Tensor
-from PIL import Image
-from .module import Module
+from .nn import Module
 
 import os
+import glob
 import random
 import numpy as np
 import pickle
 from collections import OrderedDict
+from PIL import Image
+from typing import Callable, Tuple
 
 
-def save(obj, path):
+def save(obj, path: str):
     if not isinstance(obj, OrderedDict):
         obj = OrderedDict(obj)
 
@@ -22,8 +24,8 @@ def load(path) -> OrderedDict:
         return pickle.load(fi)
 
 
-def transform(mean, std):
-    def _transform(img: np.ndarray):
+def transform(mean: float, std: float):
+    def _transform(img: np.ndarray) -> Tensor:
         out = (img - mean) / std
         if len(out.shape) == 4:
             return Tensor(out, retrain=False)
@@ -36,7 +38,7 @@ def transform(mean, std):
     return _transform
 
 
-def clip_grad(model: Module, threshold=0.2):
+def clip_grad(model: Module, threshold: float = 0.2):
     for param in model.parameters():
         grad_norm = np.linalg.norm(param.grad)
         param_norm = np.linalg.norm(param.data)
@@ -45,30 +47,33 @@ def clip_grad(model: Module, threshold=0.2):
 
 
 class DataLoader(object):
-    def __init__(self, dir, transform, batchsize, shuffle=False) -> None:
+    def __init__(
+            self,
+            dir: str,
+            transform: Callable[[np.ndarray], Tensor],
+            batchsize: int,
+            shuffle: bool = False,
+            img_format: str = 'bmp') -> None:
         super().__init__()
         assert os.path.isdir(dir)
-        dir = dir + '/'
-        classes = os.listdir(dir)
-        classes = [x for x in classes if os.path.isdir(dir + x)]
+        assert isinstance(img_format, str)
         self.data = []
-        for c in classes:
-            imgs = os.listdir(dir + c)
-            imgs = [dir + c + '/' + x for x in imgs if '.bmp' in x]
-            imgs = [(x, int(c)) for x in imgs]
-            self.data += imgs
+        for c in [os.path.basename(c) for c in glob.glob(f"{dir}/*") if os.path.isdir(c)]:
+            label = int(c)
+            self.data += [(_img, label)
+                          for _img in glob.glob(f"{dir}/{c}/*.{img_format}")]
 
         self.transform = transform
         self.batchsize = batchsize
         self.shuffle = shuffle
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.data)
 
     def __iter__(self) -> None:
         return self()
 
-    def __call__(self):
+    def __call__(self) -> Tuple[Tensor, Tensor]:
         if self.shuffle:
             random.shuffle(self.data)
 
