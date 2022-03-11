@@ -17,7 +17,7 @@ Install requirements of `pico` via:
 pip install -r requirements.txt
 ```
 
-Preparing the MNIST images further requires to install `torch` and `torchvision`, but them're not required for the basic functions.
+Preparing the MNIST images further requires to install `torch` and `torchvision`, but they're not required for the basic functions.
 
 ## Usage
 
